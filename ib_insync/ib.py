@@ -81,7 +81,7 @@ class IB:
     For introducing a delay, never use time.sleep() but use
     :meth:`.sleep` instead.
 
-    Attributes:
+    Parameters:
         RequestTimeout (float): Timeout (in seconds) to wait for a
           blocking request to finish before raising ``asyncio.TimeoutError``.
           The default value of 0 will wait indefinitely.
@@ -1649,16 +1649,10 @@ class IB:
     async def connectAsync(
             self, host: str = '127.0.0.1', port: int = 7497,
             clientId: int = 1, timeout: Optional[float] = 4,
-            readonly: bool = False, account: str = ''):
-        clientId = int(clientId)
-        self.wrapper.clientId = clientId
-        timeout = timeout or None
-        try:
-            # establish API connection
-            await self.client.connectAsync(host, port, clientId, timeout)
-
+            readonly: bool = False, account: str = '', fast : bool=True ):
+        async def reqs():
             # autobind manual orders
-            if clientId == 0:
+            if clientId == 0 and not fast:
                 self.reqAutoOpenOrders(True)
 
             accounts = self.client.getAccounts()
@@ -1690,6 +1684,15 @@ class IB:
 
             # the request for executions must come after all orders are in
             await asyncio.wait_for(self.reqExecutionsAsync(), timeout)
+
+        clientId = int(clientId)
+        self.wrapper.clientId = clientId
+        timeout = timeout or None
+        try:
+            # establish API connection
+            await self.client.connectAsync(host, port, clientId, timeout)
+            if not fast:
+                await reqs()
 
             # final check if socket is still ready
             if not self.client.isReady():
